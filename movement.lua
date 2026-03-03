@@ -1,38 +1,27 @@
-local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Orion/main/source"))()
 
-local Window = Rayfield:CreateWindow({
-   Name = "Ultra Light Movement",
-   LoadingTitle = "Loading...",
-   LoadingSubtitle = "Color Custom Edition",
-   ConfigurationSaving = { Enabled = false }
+local Window = OrionLib:CreateWindow({
+    Name = "Ultra Light Movement",
+    HidePremium = false,
+    SaveConfig = true,
+    ConfigFolder = "OrionTest"
 })
 
-local MovementTab = Window:CreateTab("Movement", 4483362458)
-local CombatTab = Window:CreateTab("Combat", 4483362458)
-local UITab = Window:CreateTab("UI Settings", 4483362458)
+local MovementTab = Window:AddTab("Movement")
+local CombatTab = Window:AddTab("Combat")
+local UITab = Window:AddTab("UI Settings")
 
 --------------------------------------------------
--- 🎨 テーマ変更
+-- 🎨 テーマ変更 (Orion UIではテーマ設定が異なります)
 --------------------------------------------------
 
-local themes = {
-    "Default",
-    "DarkBlue",
-    "Green",
-    "Light",
-    "Amethyst",
-    "Ocean",
-    "Bloom"
-}
+-- Orion UIはテーマ設定が組み込まれているため、RayfieldのようなDropdownでのテーマ変更は不要です。
+-- OrionLib:SetTheme("Dark") -- 例: デフォルトでダークテーマに設定
+-- OrionLib:SetAccentColor(Color3.fromRGB(0, 150, 255)) -- 例: アクセントカラーを設定
 
-UITab:CreateDropdown({
-   Name = "Select UI Theme",
-   Options = themes,
-   CurrentOption = "Default",
-   Callback = function(Option)
-       Rayfield:ChangeTheme(Option)
-   end,
-})
+UITab:AddButton("Reset UI Position", function()
+    OrionLib:ResetPosition()
+end)
 
 --------------------------------------------------
 -- 共通変数とサービス
@@ -59,11 +48,11 @@ end)
 --------------------------------------------------
 
 -- 🚀 WalkSpeed
-MovementTab:CreateSlider({
+MovementTab:AddSlider({
    Name = "WalkSpeed",
-   Range = {16, 200},
-   Increment = 1,
-   CurrentValue = 16,
+   Min = 16,
+   Max = 200,
+   Default = 16,
    Callback = function(Value)
       Humanoid.WalkSpeed = Value
    end,
@@ -88,9 +77,9 @@ local flying = false
 local bodyVelocity
 local flySpeed = 60
 
-MovementTab:CreateToggle({
+MovementTab:AddToggle({
    Name = "Fly",
-   CurrentValue = false,
+   Default = false,
    Callback = function(Value)
        flying = Value
        if flying then
@@ -121,9 +110,9 @@ UIS.JumpRequest:Connect(function()
     end
 end)
 
-MovementTab:CreateToggle({
+MovementTab:AddToggle({
    Name = "Infinite Jump",
-   CurrentValue = false,
+   Default = false,
    Callback = function(Value)
        infiniteJump = Value
    end,
@@ -133,9 +122,9 @@ MovementTab:CreateToggle({
 local noclip = false
 local noclipConnection
 
-MovementTab:CreateToggle({
+MovementTab:AddToggle({
    Name = "Noclip",
-   CurrentValue = false,
+   Default = false,
    Callback = function(Value)
        noclip = Value
        if noclip then
@@ -181,64 +170,78 @@ updatePlayerList()
 Players.PlayerAdded:Connect(updatePlayerList)
 Players.PlayerRemoving:Connect(updatePlayerList)
 
-local playerDropdownTP = MovementTab:CreateDropdown({
-    Name = "Select Player for TP/Bring",
-    Options = playerNames,
-    CurrentOption = selectedPlayerName,
-    Callback = function(Option)
-        selectedPlayerName = Option
-    end,
-})
+local playerDropdownTP = MovementTab:AddDropdown("Select Player for TP/Bring", playerNames, selectedPlayerName, function(Option)
+    selectedPlayerName = Option
+end)
 
-MovementTab:CreateButton({
-    Name = "Refresh Player List (TP)",
-    Callback = function()
-        updatePlayerList()
-        playerDropdownTP:SetOptions(playerNames)
-        Rayfield:Notify("Player List", "Player list refreshed for TP!", 5)
-    end,
-})
+MovementTab:AddButton("Refresh Player List (TP)", function()
+    updatePlayerList()
+    playerDropdownTP:SetOptions(playerNames)
+    OrionLib:MakeNotification({
+        Name = "Player List",
+        Content = "Player list refreshed for TP!",
+        Time = 5
+    })
+end)
 
-MovementTab:CreateButton({
-    Name = "TP to Selected Player",
-    Callback = function()
-        if selectedPlayerName ~= "" then
-            local targetPlayer = Players:FindFirstChild(selectedPlayerName)
-            if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                RootPart.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame + Vector3.new(0, 5, 0) -- 少し上にテレポート
-                Rayfield:Notify("Teleport", "Teleported to " .. selectedPlayerName .. "!", 5)
-            else
-                Rayfield:Notify("Teleport Error", "Selected player not found or character not loaded.", 5)
-            end
+MovementTab:AddButton("TP to Selected Player", function()
+    if selectedPlayerName ~= "" then
+        local targetPlayer = Players:FindFirstChild(selectedPlayerName)
+        if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            RootPart.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame + Vector3.new(0, 5, 0) -- 少し上にテレポート
+            OrionLib:MakeNotification({
+                Name = "Teleport",
+                Content = "Teleported to " .. selectedPlayerName .. "!",
+                Time = 5
+            })
         else
-            Rayfield:Notify("Teleport Error", "No player selected.", 5)
+            OrionLib:MakeNotification({
+                Name = "Teleport Error",
+                Content = "Selected player not found or character not loaded.",
+                Time = 5
+            })
         end
-    end,
-})
+    else
+        OrionLib:MakeNotification({
+            Name = "Teleport Error",
+            Content = "No player selected.",
+            Time = 5
+        })
+    end
+end)
 
-MovementTab:CreateButton({
-    Name = "Bring Selected Player",
-    Callback = function()
-        if selectedPlayerName ~= "" then
-            local targetPlayer = Players:FindFirstChild(selectedPlayerName)
-            if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                targetPlayer.Character.HumanoidRootPart.CFrame = RootPart.CFrame + Vector3.new(0, 5, 0) -- 自分の少し上にテレポート
-                Rayfield:Notify("Bring", "Brought " .. selectedPlayerName .. " to you!", 5)
-            else
-                Rayfield:Notify("Bring Error", "Selected player not found or character not loaded.", 5)
-            end
+MovementTab:AddButton("Bring Selected Player", function()
+    if selectedPlayerName ~= "" then
+        local targetPlayer = Players:FindFirstChild(selectedPlayerName)
+        if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            targetPlayer.Character.HumanoidRootPart.CFrame = RootPart.CFrame + Vector3.new(0, 5, 0) -- 自分の少し上にテレポート
+            OrionLib:MakeNotification({
+                Name = "Bring",
+                Content = "Brought " .. selectedPlayerName .. " to you!",
+                Time = 5
+            })
         else
-            Rayfield:Notify("Bring Error", "No player selected.", 5)
+            OrionLib:MakeNotification({
+                Name = "Bring Error",
+                Content = "Selected player not found or character not loaded.",
+                Time = 5
+            })
         end
-    end,
-})
+    else
+        OrionLib:MakeNotification({
+            Name = "Bring Error",
+            Content = "No player selected.",
+            Time = 5
+        })
+    end
+end)
 
 local clickTPEnabled = false
 local clickTPConnection
 
-MovementTab:CreateToggle({
+MovementTab:AddToggle({
     Name = "Click TP (Ctrl + Click)",
-    CurrentValue = false,
+    Default = false,
     Callback = function(Value)
         clickTPEnabled = Value
         if clickTPEnabled then
@@ -248,7 +251,11 @@ MovementTab:CreateToggle({
                     local mouse = LocalPlayer:GetMouse()
                     if mouse.Target then
                         RootPart.CFrame = mouse.Hit + Vector3.new(0, 5, 0) -- クリックした場所に少し上にテレポート
-                        Rayfield:Notify("Click TP", "Teleported to clicked location!", 3)
+                        OrionLib:MakeNotification({
+                            Name = "Click TP",
+                            Content = "Teleported to clicked location!",
+                            Time = 3
+                        })
                     end
                 end
             end)
@@ -308,9 +315,9 @@ local function clearESP()
     espAdornments = {}
 end
 
-CombatTab:CreateToggle({
+CombatTab:AddToggle({
     Name = "ESP (Players)",
-    CurrentValue = false,
+    Default = false,
     Callback = function(Value)
         espEnabled = Value
         if espEnabled then
@@ -390,9 +397,9 @@ local function aimAtTarget(targetPlayer)
     end
 end
 
-CombatTab:CreateToggle({
+CombatTab:AddToggle({
     Name = "Auto Assistant (Aimbot)",
-    CurrentValue = false,
+    Default = false,
     Callback = function(Value)
         autoAimEnabled = Value
         if autoAimEnabled then
@@ -416,11 +423,11 @@ CombatTab:CreateToggle({
     end,
 })
 
-CombatTab:CreateSlider({
+CombatTab:AddSlider({
     Name = "Aimbot FOV",
-    Range = {50, 500},
-    Increment = 10,
-    CurrentValue = fovRadius,
+    Min = 50,
+    Max = 500,
+    Default = fovRadius,
     Callback = function(Value)
         fovRadius = Value
         if fovCircle then
@@ -432,50 +439,55 @@ CombatTab:CreateSlider({
 
 -- Fling / Kick Player
 -- CombatタブとMovementタブでプレイヤーリストを共有するため、playerNamesとselectedPlayerNameはグローバルに近いスコープで定義
--- ただし、RayfieldのDropdownはOptionsを直接更新できないため、Refreshボタンで再描画を促す
+-- ただし、Orion UIのDropdownはSetOptionsで更新可能
 
-local playerDropdownCombat = CombatTab:CreateDropdown({
-    Name = "Select Player Target",
-    Options = playerNames,
-    CurrentOption = selectedPlayerName,
-    Callback = function(Option)
-        selectedPlayerName = Option
-    end,
-})
+local playerDropdownCombat = CombatTab:AddDropdown("Select Player Target", playerNames, selectedPlayerName, function(Option)
+    selectedPlayerName = Option
+end)
 
-CombatTab:CreateButton({
-    Name = "Refresh Player List",
-    Callback = function()
-        updatePlayerList()
-        playerDropdownCombat:SetOptions(playerNames) -- Combatタブのドロップダウンも更新
-        playerDropdownTP:SetOptions(playerNames) -- Movementタブのドロップダウンも更新
-        Rayfield:Notify("Player List", "Player list refreshed!", 5)
-    end,
-})
+CombatTab:AddButton("Refresh Player List", function()
+    updatePlayerList()
+    playerDropdownCombat:SetOptions(playerNames) -- Combatタブのドロップダウンも更新
+    playerDropdownTP:SetOptions(playerNames) -- Movementタブのドロップダウンも更新
+    OrionLib:MakeNotification({
+        Name = "Player List",
+        Content = "Player list refreshed!",
+        Time = 5
+    })
+end)
 
-CombatTab:CreateButton({
-    Name = "Fling Selected Player",
-    Callback = function()
-        if selectedPlayerName ~= "" then
-            local targetPlayer = Players:FindFirstChild(selectedPlayerName)
-            if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                local targetRoot = targetPlayer.Character.HumanoidRootPart
-                local flingForce = Vector3.new(0, 1000, 0) + (RootPart.CFrame.LookVector * 500) -- 上方向と前方への力を強化
-                
-                -- ターゲットを無重力状態にして、より遠くに飛ばす
-                targetRoot.AssemblyLinearVelocity = Vector3.new(0,0,0)
-                targetRoot.AssemblyAngularVelocity = Vector3.new(0,0,0)
-                targetRoot:ApplyImpulse(flingForce * targetRoot:GetMass() * 5) -- 質量に応じて力を調整し、さらに強化
+CombatTab:AddButton("Fling Selected Player", function()
+    if selectedPlayerName ~= "" then
+        local targetPlayer = Players:FindFirstChild(selectedPlayerName)
+        if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local targetRoot = targetPlayer.Character.HumanoidRootPart
+            local flingForce = Vector3.new(0, 2000, 0) + (RootPart.CFrame.LookVector * 1000) -- 上方向と前方への力をさらに強化
+            
+            -- ターゲットを無重力状態にして、より遠くに飛ばす
+            targetRoot.AssemblyLinearVelocity = Vector3.new(0,0,0)
+            targetRoot.AssemblyAngularVelocity = Vector3.new(0,0,0)
+            targetRoot:ApplyImpulse(flingForce * targetRoot:GetMass() * 10) -- 質量に応じて力を調整し、さらに強化
 
-                Rayfield:Notify("Fling", "Flinged " .. selectedPlayerName .. "!", 5)
-            else
-                Rayfield:Notify("Fling Error", "Selected player not found or character not loaded.", 5)
-            end
+            OrionLib:MakeNotification({
+                Name = "Fling",
+                Content = "Flinged " .. selectedPlayerName .. "!",
+                Time = 5
+            })
         else
-            Rayfield:Notify("Fling Error", "No player selected.", 5)
+            OrionLib:MakeNotification({
+                Name = "Fling Error",
+                Content = "Selected player not found or character not loaded.",
+                Time = 5
+            })
         end
-    end,
-})
+    else
+        OrionLib:MakeNotification({
+            Name = "Fling Error",
+            Content = "No player selected.",
+            Time = 5
+        })
+    end
+end)
 
 -- Loop Kill
 local loopKillEnabled = false
@@ -484,13 +496,17 @@ local loopKillConnection
 local function killPlayer(targetPlayer)
     if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChildOfClass("Humanoid") then
         targetPlayer.Character:FindFirstChildOfClass("Humanoid").Health = 0
-        Rayfield:Notify("Loop Kill", "Killed " .. targetPlayer.Name .. "!", 2)
+        OrionLib:MakeNotification({
+            Name = "Loop Kill",
+            Content = "Killed " .. targetPlayer.Name .. "!",
+            Time = 2
+        })
     end
 end
 
-CombatTab:CreateToggle({
+CombatTab:AddToggle({
     Name = "Loop Kill Selected Player",
-    CurrentValue = false,
+    Default = false,
     Callback = function(Value)
         loopKillEnabled = Value
         if loopKillEnabled then
@@ -505,12 +521,20 @@ CombatTab:CreateToggle({
                         killPlayer(targetPlayer)
                     end)
                 else
-                    Rayfield:Notify("Loop Kill Error", "Selected player not found.", 5)
+                    OrionLib:MakeNotification({
+                        Name = "Loop Kill Error",
+                        Content = "Selected player not found.",
+                        Time = 5
+                    })
                     loopKillEnabled = false -- 無効にする
                     return
                 end
             else
-                Rayfield:Notify("Loop Kill Error", "No player selected for loop kill.", 5)
+                OrionLib:MakeNotification({
+                    Name = "Loop Kill Error",
+                    Content = "No player selected for loop kill.",
+                    Time = 5
+                })
                 loopKillEnabled = false -- 無効にする
                 return
             end
