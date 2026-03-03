@@ -156,7 +156,7 @@ MovementTab:CreateToggle({
 })
 
 --------------------------------------------------
--- Combat機能 (ESP & Auto Assistant & Fling)
+-- Combat機能 (ESP & Auto Assistant & Fling & Loop Kill)
 --------------------------------------------------
 
 local espEnabled = false
@@ -301,7 +301,7 @@ CombatTab:CreateToggle({
             if aimConnection then
                 aimConnection:Disconnect()
                 aimConnection = nil
-            }
+            end
             if fovCircle then
                 fovCircle:Destroy()
                 fovCircle = nil
@@ -347,8 +347,8 @@ updatePlayerList()
 Players.PlayerAdded:Connect(updatePlayerList)
 Players.PlayerRemoving:Connect(updatePlayerList)
 
-CombatTab:CreateDropdown({
-    Name = "Select Player to Fling",
+local playerDropdown = CombatTab:CreateDropdown({
+    Name = "Select Player Target",
     Options = playerNames,
     CurrentOption = selectedPlayerName,
     Callback = function(Option)
@@ -360,6 +360,7 @@ CombatTab:CreateButton({
     Name = "Refresh Player List",
     Callback = function()
         updatePlayerList()
+        playerDropdown:SetOptions(playerNames) -- ドロップダウンのオプションを更新
         Rayfield:Notify("Player List", "Player list refreshed!", 5)
     end,
 })
@@ -384,6 +385,52 @@ CombatTab:CreateButton({
             end
         else
             Rayfield:Notify("Fling Error", "No player selected.", 5)
+        end
+    end,
+})
+
+-- Loop Kill
+local loopKillEnabled = false
+local loopKillConnection
+
+local function killPlayer(targetPlayer)
+    if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChildOfClass("Humanoid") then
+        targetPlayer.Character:FindFirstChildOfClass("Humanoid").Health = 0
+        Rayfield:Notify("Loop Kill", "Killed " .. targetPlayer.Name .. "!", 2)
+    end
+end
+
+CombatTab:CreateToggle({
+    Name = "Loop Kill Selected Player",
+    CurrentValue = false,
+    Callback = function(Value)
+        loopKillEnabled = Value
+        if loopKillEnabled then
+            if selectedPlayerName ~= "" then
+                local targetPlayer = Players:FindFirstChild(selectedPlayerName)
+                if targetPlayer then
+                    -- 初回キル
+                    killPlayer(targetPlayer)
+                    -- CharacterAddedイベントでリスポーンを検知し、再度キル
+                    loopKillConnection = targetPlayer.CharacterAdded:Connect(function(char)
+                        task.wait(0.5) -- キャラクターが完全にロードされるのを待つ
+                        killPlayer(targetPlayer)
+                    end)
+                else
+                    Rayfield:Notify("Loop Kill Error", "Selected player not found.", 5)
+                    loopKillEnabled = false -- 無効にする
+                    return
+                end
+            else
+                Rayfield:Notify("Loop Kill Error", "No player selected for loop kill.", 5)
+                loopKillEnabled = false -- 無効にする
+                return
+            end
+        else
+            if loopKillConnection then
+                loopKillConnection:Disconnect()
+                loopKillConnection = nil
+            end
         end
     end,
 })
