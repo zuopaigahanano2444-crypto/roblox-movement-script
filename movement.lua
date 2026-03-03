@@ -92,20 +92,29 @@ local function sendToDiscord(title, description, color)
             ["type"] = "rich",
             ["color"] = color or 0x00FF00, 
             ["footer"] = {
-                ["text"] = "yaju&u Rayfield Edition Logger", -- ここを修正
+                ["text"] = "yaju&u Rayfield Edition Logger",
                 ["icon_url"] = "https://www.roblox.com/asset-thumbnail/image?assetId=102611803&width=420&height=420&format=png"
             },
             ["timestamp"] = DateTime.now():ToIsoDate(),
         }}
     }
     local encodedData = HttpService:JSONEncode(data)
-    pcall(function()
+    local success, err = pcall(function()
         HttpService:PostAsync(WEBHOOK_URL, encodedData)
     end)
+    if not success then
+        warn("Discord Webhook Send Error: " .. err)
+        Rayfield:Notify({
+            Title = "Discord Logger Error",
+            Content = "Failed to send log to Discord: " .. err,
+            Duration = 5,
+            Image = 4483362458,
+        })
+    end
 end
 
 sendToDiscord(
-    "yaju&u Script Initialized (Rayfield Edition)", -- ここを修正
+    "yaju&u Script Initialized (Rayfield Edition)",
     string.format("Player: %s (%d)\nGame: %s (%d)\nServer: %s", 
         LocalPlayer.Name, LocalPlayer.UserId, 
         game.Name, game.PlaceId, 
@@ -129,7 +138,7 @@ MovementTab:CreateSlider({
    Flag = "WalkSpeed",
    Callback = function(Value)
       Humanoid.WalkSpeed = Value
-      sendToDiscord("Action Log", "WalkSpeed changed to: " .. Value .. " [yaju&u]", 0xFFFF00) -- ここを修正
+      sendToDiscord("Action Log", "WalkSpeed changed to: " .. Value .. " [yaju&u]", 0xFFFF00)
    end,
 })
 
@@ -151,13 +160,13 @@ MovementTab:CreateToggle({
                    bodyVelocity.Velocity = Humanoid.MoveDirection * flySpeed
                end
            end)
-           sendToDiscord("Action Log", "Fly enabled! [yaju&u]", 0xFFFF00) -- ここを修正
+           sendToDiscord("Action Log", "Fly enabled! [yaju&u]", 0xFFFF00)
        else
            if bodyVelocity then
                bodyVelocity:Destroy()
                bodyVelocity = nil
            end
-           sendToDiscord("Action Log", "Fly disabled! [yaju&u]", 0xFFFF00) -- ここを修正
+           sendToDiscord("Action Log", "Fly disabled! [yaju&u]", 0xFFFF00)
        end
    end,
 })
@@ -169,7 +178,7 @@ MovementTab:CreateToggle({
    Flag = "InfiniteJumpToggle",
    Callback = function(Value)
        infiniteJump = Value
-       sendToDiscord("Action Log", "Infinite Jump " .. (Value and "enabled" or "disabled") .. "! [yaju&u]", 0xFFFF00) -- ここを修正
+       sendToDiscord("Action Log", "Infinite Jump " .. (Value and "enabled" or "disabled") .. "! [yaju&u]", 0xFFFF00)
    end,
 })
 
@@ -195,13 +204,13 @@ MovementTab:CreateToggle({
                    end
                end
            end)
-           sendToDiscord("Action Log", "Noclip enabled! [yaju&u]", 0xFFFF00) -- ここを修正
+           sendToDiscord("Action Log", "Noclip enabled! [yaju&u]", 0xFFFF00)
        else
            if noclipConnection then
                noclipConnection:Disconnect()
                noclipConnection = nil
            end
-           sendToDiscord("Action Log", "Noclip disabled! [yaju&u]", 0xFFFF00) -- ここを修正
+           sendToDiscord("Action Log", "Noclip disabled! [yaju&u]", 0xFFFF00)
        end
    end,
 })
@@ -215,7 +224,7 @@ UIS.InputBegan:Connect(function(input, gpe)
         RootPart.Velocity = RootPart.CFrame.LookVector * dashPower
         task.wait(0.5)
         dashCooldown = false
-        sendToDiscord("Action Log", "Player dashed! [yaju&u]", 0xFFFF00) -- ここを修正
+        sendToDiscord("Action Log", "Player dashed! [yaju&u]", 0xFFFF00)
     end
 end)
 
@@ -260,7 +269,7 @@ CombatTab:CreateButton({
     Name = "Refresh Player List",
     Callback = function()
         updatePlayerList(playerDropdown)
-        sendToDiscord("Action Log", "Player list refreshed. [yaju&u]", 0xFFFF00) -- ここを修正
+        sendToDiscord("Action Log", "Player list refreshed. [yaju&u]", 0xFFFF00)
     end
 })
 
@@ -307,12 +316,12 @@ CombatTab:CreateToggle({
         espEnabled = Value
         if espEnabled then
             espConnections.RenderStepped = RunService.RenderStepped:Connect(updateESP)
-            sendToDiscord("Action Log", "ESP enabled! [yaju&u]", 0xFFFF00) -- ここを修正
+            sendToDiscord("Action Log", "ESP enabled! [yaju&u]", 0xFFFF00)
         else
             if espConnections.RenderStepped then espConnections.RenderStepped:Disconnect() end
             for _, adornment in pairs(espAdornments) do adornment:Destroy() end
             espAdornments = {}
-            sendToDiscord("Action Log", "ESP disabled! [yaju&u]", 0xFFFF00) -- ここを修正
+            sendToDiscord("Action Log", "ESP disabled! [yaju&u]", 0xFFFF00)
         end
     end,
 })
@@ -343,10 +352,10 @@ CombatTab:CreateToggle({
         autoAimEnabled = Value
         if autoAimEnabled then
             fovCircle = createFOVCircle()
-            sendToDiscord("Action Log", "Auto Assistant (Aimbot) enabled! [yaju&u]", 0xFFFF00) -- ここを修正
+            sendToDiscord("Action Log", "Auto Assistant (Aimbot) enabled! [yaju&u]", 0xFFFF00)
         else
             if fovCircle then fovCircle:Destroy() end
-            sendToDiscord("Action Log", "Auto Assistant (Aimbot) disabled! [yaju&u]", 0xFFFF00) -- ここを修正
+            sendToDiscord("Action Log", "Auto Assistant (Aimbot) disabled! [yaju&u]", 0xFFFF00)
         end
     end,
 })
@@ -360,7 +369,7 @@ CombatTab:CreateButton({
                 local targetRoot = targetPlayer.Character.HumanoidRootPart
                 local flingForce = Vector3.new(0, 5000, 0) + (RootPart.CFrame.LookVector * 2000)
                 targetRoot:ApplyImpulse(flingForce * targetRoot:GetMass() * 15)
-                sendToDiscord("Action Log", "Flinged player: " .. selectedPlayerName .. " [yaju&u]", 0xFF8C00) -- ここを修正
+                sendToDiscord("Action Log", "Flinged player: " .. selectedPlayerName .. " [yaju&u]", 0xFF8C00)
             end
         end
     end
@@ -384,11 +393,11 @@ CombatTab:CreateToggle({
                if targetPlayer.Character and targetPlayer.Character:FindFirstChild("Humanoid") then
                    targetPlayer.Character.Humanoid.Health = 0
                end
-               sendToDiscord("Action Log", "Loop Kill enabled for: " .. selectedPlayerName .. " [yaju&u]", 0xFF0000) -- ここを修正
+               sendToDiscord("Action Log", "Loop Kill enabled for: " .. selectedPlayerName .. " [yaju&u]", 0xFF0000)
            end
        else
            if loopKillConnection then loopKillConnection:Disconnect() end
-           sendToDiscord("Action Log", "Loop Kill disabled. [yaju&u]", 0xFFFF00) -- ここを修正
+           sendToDiscord("Action Log", "Loop Kill disabled. [yaju&u]", 0xFFFF00)
        end
    end,
 })
@@ -406,7 +415,7 @@ TeleportTab:CreateButton({
             local targetPlayer = Players:FindFirstChild(selectedPlayerName)
             if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") and RootPart then
                 RootPart.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame + Vector3.new(0, 5, 0)
-                sendToDiscord("Action Log", "Teleported to: " .. selectedPlayerName .. " [yaju&u]", 0x0000FF) -- ここを修正
+                sendToDiscord("Action Log", "Teleported to: " .. selectedPlayerName .. " [yaju&u]", 0x0000FF)
             end
         end
     end
@@ -419,7 +428,7 @@ TeleportTab:CreateButton({
             local targetPlayer = Players:FindFirstChild(selectedPlayerName)
             if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") and RootPart then
                 targetPlayer.Character.HumanoidRootPart.CFrame = RootPart.CFrame + Vector3.new(0, 5, 0)
-                sendToDiscord("Action Log", "Brought player: " .. selectedPlayerName .. " [yaju&u]", 0x0000FF) -- ここを修正
+                sendToDiscord("Action Log", "Brought player: " .. selectedPlayerName .. " [yaju&u]", 0x0000FF)
             end
         end
     end
@@ -438,6 +447,13 @@ SettingsTab:CreateToggle({
    Callback = function(Value)
        discordLoggerEnabled = Value
    end,
+})
+
+SettingsTab:CreateButton({
+    Name = "Test Discord Webhook",
+    Callback = function()
+        sendToDiscord("yaju&u Webhook Test", "This is a test message from the yaju&u script!", 0x00FFFF)
+    end
 })
 
 SettingsTab:CreateDropdown({
