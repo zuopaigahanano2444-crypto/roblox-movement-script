@@ -1,10 +1,24 @@
 local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Orion/main/source"))()
 
+-- OrionLibが完全にロードされるのを待つ
+task.wait(1)
+OrionLib:MakeNotification({
+    Name = "Orion UI",
+    Content = "Orion UI Loaded Successfully!",
+    Time = 3
+})
+
 local Window = OrionLib:CreateWindow({
     Name = "Ultra Light Movement",
     HidePremium = false,
     SaveConfig = true,
     ConfigFolder = "OrionTest"
+})
+
+OrionLib:MakeNotification({
+    Name = "Orion UI",
+    Content = "Window Created!",
+    Time = 3
 })
 
 local MovementTab = Window:AddTab("Movement")
