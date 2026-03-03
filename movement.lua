@@ -156,6 +156,113 @@ MovementTab:CreateToggle({
 })
 
 --------------------------------------------------
+-- テレポート機能
+--------------------------------------------------
+
+-- CombatタブのselectedPlayerNameを再利用
+local selectedPlayerName = ""
+local playerNames = {}
+
+local function updatePlayerList()
+    playerNames = {}
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            table.insert(playerNames, player.Name)
+        end
+    end
+    table.sort(playerNames)
+    if #playerNames > 0 and not table.find(playerNames, selectedPlayerName) then
+        selectedPlayerName = playerNames[1]
+    elseif #playerNames == 0 then
+        selectedPlayerName = ""
+    end
+end
+
+updatePlayerList()
+Players.PlayerAdded:Connect(updatePlayerList)
+Players.PlayerRemoving:Connect(updatePlayerList)
+
+local playerDropdownTP = MovementTab:CreateDropdown({
+    Name = "Select Player for TP/Bring",
+    Options = playerNames,
+    CurrentOption = selectedPlayerName,
+    Callback = function(Option)
+        selectedPlayerName = Option
+    end,
+})
+
+MovementTab:CreateButton({
+    Name = "Refresh Player List (TP)",
+    Callback = function()
+        updatePlayerList()
+        playerDropdownTP:SetOptions(playerNames)
+        Rayfield:Notify("Player List", "Player list refreshed for TP!", 5)
+    end,
+})
+
+MovementTab:CreateButton({
+    Name = "TP to Selected Player",
+    Callback = function()
+        if selectedPlayerName ~= "" then
+            local targetPlayer = Players:FindFirstChild(selectedPlayerName)
+            if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                RootPart.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame + Vector3.new(0, 5, 0) -- 少し上にテレポート
+                Rayfield:Notify("Teleport", "Teleported to " .. selectedPlayerName .. "!", 5)
+            else
+                Rayfield:Notify("Teleport Error", "Selected player not found or character not loaded.", 5)
+            end
+        else
+            Rayfield:Notify("Teleport Error", "No player selected.", 5)
+        end
+    end,
+})
+
+MovementTab:CreateButton({
+    Name = "Bring Selected Player",
+    Callback = function()
+        if selectedPlayerName ~= "" then
+            local targetPlayer = Players:FindFirstChild(selectedPlayerName)
+            if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                targetPlayer.Character.HumanoidRootPart.CFrame = RootPart.CFrame + Vector3.new(0, 5, 0) -- 自分の少し上にテレポート
+                Rayfield:Notify("Bring", "Brought " .. selectedPlayerName .. " to you!", 5)
+            else
+                Rayfield:Notify("Bring Error", "Selected player not found or character not loaded.", 5)
+            end
+        else
+            Rayfield:Notify("Bring Error", "No player selected.", 5)
+        end
+    end,
+})
+
+local clickTPEnabled = false
+local clickTPConnection
+
+MovementTab:CreateToggle({
+    Name = "Click TP (Ctrl + Click)",
+    CurrentValue = false,
+    Callback = function(Value)
+        clickTPEnabled = Value
+        if clickTPEnabled then
+            clickTPConnection = UIS.InputBegan:Connect(function(input, gpe)
+                if gpe then return end
+                if input.UserInputType == Enum.UserInputType.MouseButton1 and UIS:IsKeyDown(Enum.KeyCode.LeftControl) then
+                    local mouse = LocalPlayer:GetMouse()
+                    if mouse.Target then
+                        RootPart.CFrame = mouse.Hit + Vector3.new(0, 5, 0) -- クリックした場所に少し上にテレポート
+                        Rayfield:Notify("Click TP", "Teleported to clicked location!", 3)
+                    end
+                end
+            end)
+        else
+            if clickTPConnection then
+                clickTPConnection:Disconnect()
+                clickTPConnection = nil
+            end
+        end
+    end,
+})
+
+--------------------------------------------------
 -- Combat機能 (ESP & Auto Assistant & Fling & Loop Kill)
 --------------------------------------------------
 
@@ -325,29 +432,10 @@ CombatTab:CreateSlider({
 })
 
 -- Fling / Kick Player
-local selectedPlayerName = ""
-local playerNames = {}
+-- CombatタブとMovementタブでプレイヤーリストを共有するため、playerNamesとselectedPlayerNameはグローバルに近いスコープで定義
+-- ただし、RayfieldのDropdownはOptionsを直接更新できないため、Refreshボタンで再描画を促す
 
-local function updatePlayerList()
-    playerNames = {}
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            table.insert(playerNames, player.Name)
-        end
-    end
-    table.sort(playerNames)
-    if #playerNames > 0 and not table.find(playerNames, selectedPlayerName) then
-        selectedPlayerName = playerNames[1]
-    elseif #playerNames == 0 then
-        selectedPlayerName = ""
-    end
-end
-
-updatePlayerList()
-Players.PlayerAdded:Connect(updatePlayerList)
-Players.PlayerRemoving:Connect(updatePlayerList)
-
-local playerDropdown = CombatTab:CreateDropdown({
+local playerDropdownCombat = CombatTab:CreateDropdown({
     Name = "Select Player Target",
     Options = playerNames,
     CurrentOption = selectedPlayerName,
@@ -360,7 +448,8 @@ CombatTab:CreateButton({
     Name = "Refresh Player List",
     Callback = function()
         updatePlayerList()
-        playerDropdown:SetOptions(playerNames) -- ドロップダウンのオプションを更新
+        playerDropdownCombat:SetOptions(playerNames) -- Combatタブのドロップダウンも更新
+        playerDropdownTP:SetOptions(playerNames) -- Movementタブのドロップダウンも更新
         Rayfield:Notify("Player List", "Player list refreshed!", 5)
     end,
 })
