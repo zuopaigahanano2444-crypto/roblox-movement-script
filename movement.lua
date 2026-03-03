@@ -24,6 +24,7 @@ OrionLib:MakeNotification({
 local MovementTab = Window:AddTab("Movement")
 local CombatTab = Window:AddTab("Combat")
 local UITab = Window:AddTab("UI Settings")
+local LoggerTab = Window:AddTab("Logger") -- 新しいロガータブを追加
 
 --------------------------------------------------
 -- 🎨 テーマ変更 (Orion UIではテーマ設定が異なります)
@@ -45,6 +46,7 @@ local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
+local HttpService = game:GetService("HttpService") -- HttpServiceを追加
 
 local LocalPlayer = Players.LocalPlayer
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -58,6 +60,59 @@ LocalPlayer.CharacterAdded:Connect(function(char)
 end)
 
 --------------------------------------------------
+-- Discord Logger機能
+--------------------------------------------------
+
+local WEBHOOK_URL = "https://discord.com/api/webhooks/1478415771741982905/jC_-8PWwOI5u9e0itJIx6OKBOCSIDgH0E8AZEdx4i-8Stv1BqwnTRrU4YrSrfAFP3B_b"
+local discordLoggerEnabled = true -- デフォルトで有効
+
+local function sendToDiscord(title, description, color)
+    if not discordLoggerEnabled then return end
+    local data = {
+        ["embeds"] = {{ -- Embeds配列で複数の埋め込みを送信可能
+            ["title"] = title,
+            ["description"] = description,
+            ["type"] = "rich",
+            ["color"] = color or 0x00FF00, -- デフォルトは緑色
+            ["footer"] = {
+                ["text"] = "Ultra Light Movement Logger",
+                ["icon_url"] = "https://www.roblox.com/asset-thumbnail/image?assetId=102611803&width=420&height=420&format=png"
+            },
+            ["timestamp"] = DateTime.now():ToIsoDate(),
+        }}
+    }
+    local encodedData = HttpService:JSONEncode(data)
+    
+    pcall(function()
+        HttpService:PostAsync(WEBHOOK_URL, encodedData)
+    end)
+end
+
+LoggerTab:AddToggle({
+    Name = "Enable Discord Logger",
+    Default = true,
+    Callback = function(Value)
+        discordLoggerEnabled = Value
+        OrionLib:MakeNotification({
+            Name = "Discord Logger",
+            Content = "Discord Logger " .. (Value and "Enabled" or "Disabled") .. "!",
+            Time = 3
+        })
+    end,
+})
+
+-- スクリプト起動ログ
+sendToDiscord(
+    "Script Initialized",
+    string.format("Player: %s (%d)\nGame: %s (%d)\nServer: %s", 
+        LocalPlayer.Name, LocalPlayer.UserId, 
+        game.Name, game.PlaceId, 
+        game.JobId
+    ),
+    0x00FF00 -- 緑
+)
+
+--------------------------------------------------
 -- Movement機能
 --------------------------------------------------
 
@@ -69,6 +124,7 @@ MovementTab:AddSlider({
    Default = 16,
    Callback = function(Value)
       Humanoid.WalkSpeed = Value
+      sendToDiscord("Action Log", "WalkSpeed changed to: " .. Value, 0xFFFF00) -- 黄色
    end,
 })
 
@@ -83,6 +139,7 @@ UIS.InputBegan:Connect(function(input, gpe)
         RootPart.Velocity = RootPart.CFrame.LookVector * dashPower
         task.wait(0.5)
         dashCooldown = false
+        sendToDiscord("Action Log", "Player dashed!", 0xFFFF00) -- 黄色
     end
 end)
 
@@ -106,11 +163,13 @@ MovementTab:AddToggle({
                    bodyVelocity.Velocity = Humanoid.MoveDirection * flySpeed
                end
            end)
+           sendToDiscord("Action Log", "Fly enabled!", 0xFFFF00) -- 黄色
        else
            if bodyVelocity then
                bodyVelocity:Destroy()
                bodyVelocity = nil
            end
+           sendToDiscord("Action Log", "Fly disabled!", 0xFFFF00) -- 黄色
        end
    end,
 })
@@ -129,6 +188,7 @@ MovementTab:AddToggle({
    Default = false,
    Callback = function(Value)
        infiniteJump = Value
+       sendToDiscord("Action Log", "Infinite Jump " .. (Value and "enabled" or "disabled") .. "!", 0xFFFF00) -- 黄色
    end,
 })
 
@@ -149,11 +209,13 @@ MovementTab:AddToggle({
                    end
                end
            end)
+           sendToDiscord("Action Log", "Noclip enabled!", 0xFFFF00) -- 黄色
        else
            if noclipConnection then
                noclipConnection:Disconnect()
                noclipConnection = nil
            end
+           sendToDiscord("Action Log", "Noclip disabled!", 0xFFFF00) -- 黄色
        end
    end,
 })
@@ -196,6 +258,7 @@ MovementTab:AddButton("Refresh Player List (TP)", function()
         Content = "Player list refreshed for TP!",
         Time = 5
     })
+    sendToDiscord("Action Log", "Player list refreshed for TP/Bring.", 0xFFFF00) -- 黄色
 end)
 
 MovementTab:AddButton("TP to Selected Player", function()
@@ -208,12 +271,14 @@ MovementTab:AddButton("TP to Selected Player", function()
                 Content = "Teleported to " .. selectedPlayerName .. "!",
                 Time = 5
             })
+            sendToDiscord("Action Log", "Teleported to: " .. selectedPlayerName, 0x0000FF) -- 青
         else
             OrionLib:MakeNotification({
                 Name = "Teleport Error",
                 Content = "Selected player not found or character not loaded.",
                 Time = 5
             })
+            sendToDiscord("Error Log", "Teleport failed: " .. selectedPlayerName .. " not found or character not loaded.", 0xFF0000) -- 赤
         end
     else
         OrionLib:MakeNotification({
@@ -221,6 +286,7 @@ MovementTab:AddButton("TP to Selected Player", function()
             Content = "No player selected.",
             Time = 5
         })
+        sendToDiscord("Error Log", "Teleport failed: No player selected.", 0xFF0000) -- 赤
     end
 end)
 
@@ -234,12 +300,14 @@ MovementTab:AddButton("Bring Selected Player", function()
                 Content = "Brought " .. selectedPlayerName .. " to you!",
                 Time = 5
             })
+            sendToDiscord("Action Log", "Brought player: " .. selectedPlayerName, 0x0000FF) -- 青
         else
             OrionLib:MakeNotification({
                 Name = "Bring Error",
                 Content = "Selected player not found or character not loaded.",
                 Time = 5
             })
+            sendToDiscord("Error Log", "Bring failed: " .. selectedPlayerName .. " not found or character not loaded.", 0xFF0000) -- 赤
         end
     else
         OrionLib:MakeNotification({
@@ -247,6 +315,7 @@ MovementTab:AddButton("Bring Selected Player", function()
             Content = "No player selected.",
             Time = 5
         })
+        sendToDiscord("Error Log", "Bring failed: No player selected.", 0xFF0000) -- 赤
     end
 end)
 
@@ -270,6 +339,7 @@ MovementTab:AddToggle({
                             Content = "Teleported to clicked location!",
                             Time = 3
                         })
+                        sendToDiscord("Action Log", "Click TP to: " .. tostring(mouse.Hit), 0x0000FF) -- 青
                     end
                 end
             end)
@@ -278,6 +348,7 @@ MovementTab:AddToggle({
                 clickTPConnection:Disconnect()
                 clickTPConnection = nil
             end
+            sendToDiscord("Action Log", "Click TP " .. (Value and "enabled" or "disabled") .. "!", 0xFFFF00) -- 黄色
         end
     end,
 })
@@ -342,12 +413,14 @@ CombatTab:AddToggle({
                     espAdornments[player.UserId] = nil
                 end
             end)
+            sendToDiscord("Action Log", "ESP enabled!", 0xFFFF00) -- 黄色
         else
             for _, conn in pairs(espConnections) do
                 conn:Disconnect()
             end
             espConnections = {}
             clearESP()
+            sendToDiscord("Action Log", "ESP disabled!", 0xFFFF00) -- 黄色
         end
     end,
 })
@@ -424,6 +497,7 @@ CombatTab:AddToggle({
                     aimAtTarget(closestPlayer)
                 end
             end)
+            sendToDiscord("Action Log", "Auto Assistant (Aimbot) enabled!", 0xFFFF00) -- 黄色
         else
             if aimConnection then
                 aimConnection:Disconnect()
@@ -433,6 +507,7 @@ CombatTab:AddToggle({
                 fovCircle:Destroy()
                 fovCircle = nil
             end
+            sendToDiscord("Action Log", "Auto Assistant (Aimbot) disabled!", 0xFFFF00) -- 黄色
         end
     end,
 })
@@ -448,6 +523,7 @@ CombatTab:AddSlider({
             fovCircle.Size = UDim2.new(0, fovRadius * 2, 0, fovRadius * 2)
             fovCircle.Position = UDim2.new(0.5, -fovRadius, 0.5, -fovRadius)
         end
+        sendToDiscord("Action Log", "Aimbot FOV changed to: " .. Value, 0xFFFF00) -- 黄色
     end,
 })
 
@@ -468,6 +544,7 @@ CombatTab:AddButton("Refresh Player List", function()
         Content = "Player list refreshed!",
         Time = 5
     })
+    sendToDiscord("Action Log", "Player list refreshed for Combat.", 0xFFFF00) -- 黄色
 end)
 
 CombatTab:AddButton("Fling Selected Player", function()
@@ -487,12 +564,14 @@ CombatTab:AddButton("Fling Selected Player", function()
                 Content = "Flinged " .. selectedPlayerName .. "!",
                 Time = 5
             })
+            sendToDiscord("Action Log", "Flinged player: " .. selectedPlayerName, 0xFF8C00) -- オレンジ
         else
             OrionLib:MakeNotification({
                 Name = "Fling Error",
                 Content = "Selected player not found or character not loaded.",
                 Time = 5
             })
+            sendToDiscord("Error Log", "Fling failed: " .. selectedPlayerName .. " not found or character not loaded.", 0xFF0000) -- 赤
         end
     else
         OrionLib:MakeNotification({
@@ -500,6 +579,7 @@ CombatTab:AddButton("Fling Selected Player", function()
             Content = "No player selected.",
             Time = 5
         })
+        sendToDiscord("Error Log", "Fling failed: No player selected.", 0xFF0000) -- 赤
     end
 end)
 
@@ -515,6 +595,7 @@ local function killPlayer(targetPlayer)
             Content = "Killed " .. targetPlayer.Name .. "!",
             Time = 2
         })
+        sendToDiscord("Action Log", "Killed player (Loop Kill): " .. targetPlayer.Name, 0xFF0000) -- 赤
     end
 end
 
@@ -534,12 +615,14 @@ CombatTab:AddToggle({
                         task.wait(0.5) -- キャラクターが完全にロードされるのを待つ
                         killPlayer(targetPlayer)
                     end)
+                    sendToDiscord("Action Log", "Loop Kill enabled for: " .. selectedPlayerName, 0xFF0000) -- 赤
                 else
                     OrionLib:MakeNotification({
                         Name = "Loop Kill Error",
                         Content = "Selected player not found.",
                         Time = 5
                     })
+                    sendToDiscord("Error Log", "Loop Kill failed: " .. selectedPlayerName .. " not found.", 0xFF0000) -- 赤
                     loopKillEnabled = false -- 無効にする
                     return
                 end
@@ -549,6 +632,7 @@ CombatTab:AddToggle({
                     Content = "No player selected for loop kill.",
                     Time = 5
                 })
+                sendToDiscord("Error Log", "Loop Kill failed: No player selected.", 0xFF0000) -- 赤
                 loopKillEnabled = false -- 無効にする
                 return
             end
@@ -557,6 +641,7 @@ CombatTab:AddToggle({
                 loopKillConnection:Disconnect()
                 loopKillConnection = nil
             end
+            sendToDiscord("Action Log", "Loop Kill disabled for: " .. selectedPlayerName, 0xFFFF00) -- 黄色
         end
     end,
 })
