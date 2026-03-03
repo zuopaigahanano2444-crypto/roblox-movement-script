@@ -1,4 +1,4 @@
-local Rayfield = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Rayfield/main/source"))()
+local Kavo = loadstring(game:HttpGet("https://raw.githubusercontent.com/kavo-ui/kavo-ui/main/src/Kavo.lua"))()
 
 -- 起動サウンド設定
 local YA_JU_SOUND_ID = "rbxassetid://111140003156670" -- yaju&u サウンドID
@@ -17,30 +17,23 @@ end
 -- スクリプト起動時にサウンドを再生
 playStartupSound()
 
--- Rayfieldが完全にロードされるのを待つ
-task.wait(0.5)
-
-local success, Window = pcall(function()
-    return Rayfield:CreateWindow({
-       Name = "Ultra Light Movement (Rayfield Edition)",
-       LoadingTitle = "Loading...",
-       LoadingSubtitle = "by Manus AI",
-       ConfigurationSaving = { Enabled = true, Key = "ULM_Config" },
-       Theme = "Amethyst",
-    })
-end)
-
-if not success or not Window then
-    warn("Rayfield UI Window creation failed: " .. tostring(Window))
-    return
-end
+-- Kavo UIの初期化
+local Window = Kavo.Create({
+    Name = "Ultra Light Movement (Kavo Edition)",
+    Size = UDim2.new(0, 300, 0, 400),
+    Position = UDim2.new(0.5, -150, 0.5, -200),
+    Theme = "Dark", -- Dark, Light, Blue, Green, Red, Purple
+    AlwaysOnTop = true,
+    Draggable = true,
+    Resizable = false,
+    Visible = true,
+})
 
 -- 起動通知
-Rayfield:Notify({
+Kavo.Notify({
     Title = "SCRIPT LOADED!",
     Content = "yaju&u is playing. Enjoy!",
     Duration = 5,
-    Image = 4483362458,
 })
 
 --------------------------------------------------
@@ -92,7 +85,7 @@ local function sendToDiscord(title, description, color)
             ["type"] = "rich",
             ["color"] = color or 0x00FF00, 
             ["footer"] = {
-                ["text"] = "yaju&u Rayfield Edition Logger",
+                ["text"] = "yaju&u Kavo Edition Logger",
                 ["icon_url"] = "https://www.roblox.com/asset-thumbnail/image?assetId=102611803&width=420&height=420&format=png"
             },
             ["timestamp"] = DateTime.now():ToIsoDate(),
@@ -104,17 +97,16 @@ local function sendToDiscord(title, description, color)
     end)
     if not success then
         warn("Discord Webhook Send Error: " .. err)
-        Rayfield:Notify({
+        Kavo.Notify({
             Title = "Discord Logger Error",
             Content = "Failed to send log to Discord: " .. err,
             Duration = 5,
-            Image = 4483362458,
         })
     end
 end
 
 sendToDiscord(
-    "yaju&u Script Initialized (Rayfield Edition)",
+    "yaju&u Script Initialized (Kavo Edition)",
     string.format("Player: %s (%d)\nGame: %s (%d)\nServer: %s", 
         LocalPlayer.Name, LocalPlayer.UserId, 
         game.Name, game.PlaceId, 
@@ -127,15 +119,13 @@ sendToDiscord(
 -- Movement タブ
 --------------------------------------------------
 
-local MovementTab = Window:CreateTab("Movement", 4483362458)
+local MovementTab = Window:AddTab("Movement")
 
-MovementTab:CreateSlider({
+MovementTab:AddSlider({
    Name = "WalkSpeed",
-   Range = {16, 200},
-   Increment = 1,
-   Suffix = "Speed",
-   CurrentValue = 16,
-   Flag = "WalkSpeed",
+   Min = 16,
+   Max = 200,
+   Default = 16,
    Callback = function(Value)
       Humanoid.WalkSpeed = Value
       sendToDiscord("Action Log", "WalkSpeed changed to: " .. Value .. " [yaju&u]", 0xFFFF00)
@@ -145,10 +135,9 @@ MovementTab:CreateSlider({
 local flying = false
 local bodyVelocity
 local flySpeed = 60
-MovementTab:CreateToggle({
+MovementTab:AddToggle({
    Name = "Fly",
-   CurrentValue = false,
-   Flag = "FlyToggle",
+   Default = false,
    Callback = function(Value)
        flying = Value
        if flying then
@@ -172,10 +161,9 @@ MovementTab:CreateToggle({
 })
 
 local infiniteJump = false
-MovementTab:CreateToggle({
+MovementTab:AddToggle({
    Name = "Infinite Jump",
-   CurrentValue = false,
-   Flag = "InfiniteJumpToggle",
+   Default = false,
    Callback = function(Value)
        infiniteJump = Value
        sendToDiscord("Action Log", "Infinite Jump " .. (Value and "enabled" or "disabled") .. "! [yaju&u]", 0xFFFF00)
@@ -189,10 +177,9 @@ UIS.JumpRequest:Connect(function()
 end)
 
 local noclipConnection
-MovementTab:CreateToggle({
+MovementTab:AddToggle({
    Name = "Noclip",
-   CurrentValue = false,
-   Flag = "NoclipToggle",
+   Default = false,
    Callback = function(Value)
        if Value then
            noclipConnection = RunService.Stepped:Connect(function()
@@ -232,7 +219,7 @@ end)
 -- Combat タブ
 --------------------------------------------------
 
-local CombatTab = Window:CreateTab("Combat", 4483362458)
+local CombatTab = Window:AddTab("Combat")
 
 local selectedPlayerName = ""
 local playerNames = {}
@@ -255,17 +242,16 @@ local function updatePlayerList(dropdown)
     end
 end
 
-local playerDropdown = CombatTab:CreateDropdown({
+local playerDropdown = CombatTab:AddDropdown({
    Name = "Select Player",
    Options = playerNames,
-   CurrentValue = selectedPlayerName,
-   Flag = "PlayerDropdown",
+   Default = selectedPlayerName,
    Callback = function(Value)
       selectedPlayerName = Value
    end,
 })
 
-CombatTab:CreateButton({
+CombatTab:AddButton({
     Name = "Refresh Player List",
     Callback = function()
         updatePlayerList(playerDropdown)
@@ -308,10 +294,9 @@ local function updateESP()
     end
 end
 
-CombatTab:CreateToggle({
+CombatTab:AddToggle({
     Name = "ESP (Players)",
-    CurrentValue = false,
-    Flag = "ESPToggle",
+    Default = false,
     Callback = function(Value)
         espEnabled = Value
         if espEnabled then
@@ -344,10 +329,9 @@ local function createFOVCircle()
     return circle
 end
 
-CombatTab:CreateToggle({
+CombatTab:AddToggle({
     Name = "Auto Assistant (Aimbot)",
-    CurrentValue = false,
-    Flag = "AimbotToggle",
+    Default = false,
     Callback = function(Value)
         autoAimEnabled = Value
         if autoAimEnabled then
@@ -360,7 +344,7 @@ CombatTab:CreateToggle({
     end,
 })
 
-CombatTab:CreateButton({
+CombatTab:AddButton({
     Name = "Fling Selected Player",
     Callback = function()
         if selectedPlayerName ~= "" then
@@ -377,10 +361,9 @@ CombatTab:CreateButton({
 
 local loopKillEnabled = false
 local loopKillConnection
-CombatTab:CreateToggle({
+CombatTab:AddToggle({
    Name = "Loop Kill Selected Player",
-   CurrentValue = false,
-   Flag = "LoopKillToggle",
+   Default = false,
    Callback = function(Value)
        loopKillEnabled = Value
        if loopKillEnabled and selectedPlayerName ~= "" then
@@ -406,9 +389,9 @@ CombatTab:CreateToggle({
 -- Teleport タブ
 --------------------------------------------------
 
-local TeleportTab = Window:CreateTab("Teleport", 4483362458)
+local TeleportTab = Window:AddTab("Teleport")
 
-TeleportTab:CreateButton({
+TeleportTab:AddButton({
     Name = "TP to Selected Player",
     Callback = function()
         if selectedPlayerName ~= "" then
@@ -421,7 +404,7 @@ TeleportTab:CreateButton({
     end
 })
 
-TeleportTab:CreateButton({
+TeleportTab:AddButton({
     Name = "Bring Selected Player",
     Callback = function()
         if selectedPlayerName ~= "" then
@@ -438,32 +421,39 @@ TeleportTab:CreateButton({
 -- Settings タブ
 --------------------------------------------------
 
-local SettingsTab = Window:CreateTab("Settings", 4483362458)
+local SettingsTab = Window:AddTab("Settings")
 
-SettingsTab:CreateToggle({
+SettingsTab:AddToggle({
    Name = "Enable Discord Logger",
-   CurrentValue = true,
-   Flag = "DiscordLoggerToggle",
+   Default = true,
    Callback = function(Value)
        discordLoggerEnabled = Value
    end,
 })
 
-SettingsTab:CreateButton({
+SettingsTab:AddButton({
     Name = "Test Discord Webhook",
     Callback = function()
-        sendToDiscord("yaju&u Webhook Test", "This is a test message from the yaju&u script!", 0x00FFFF)
+        sendToDiscord("yaju&u Webhook Test", "This is a test message from the yaju&u Kavo script!", 0x00FFFF)
     end
 })
 
-SettingsTab:CreateDropdown({
+SettingsTab:AddDropdown({
    Name = "UI Theme",
-   Options = {"Default", "DarkBlue", "Green", "Light", "Amethyst", "Ocean", "Bloom"},
-   CurrentValue = "Amethyst",
-   Flag = "ThemeDropdown",
+   Options = {"Dark", "Light", "Blue", "Green", "Red", "Purple"},
+   Default = "Dark",
    Callback = function(Value)
-      Rayfield:ChangeTheme(Value)
+      -- Kavo UI does not have a direct theme change function like Rayfield
+      -- This would require re-creating the UI or setting individual element colors
+      Kavo.Notify({
+          Title = "Theme Change",
+          Content = "Kavo UI themes are set at initialization. Please re-execute the script to change theme.",
+          Duration = 5,
+      })
    end,
 })
 
 updatePlayerList(playerDropdown)
+
+Window:SelectTab("Movement") -- デフォルトでMovementタブを選択
+Window:Open() -- UIを表示
