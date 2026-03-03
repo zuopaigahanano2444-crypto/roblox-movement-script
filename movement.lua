@@ -8,7 +8,7 @@ local Window = Rayfield:CreateWindow({
 })
 
 local MovementTab = Window:CreateTab("Movement", 4483362458)
-local CombatTab = Window:CreateTab("Combat", 4483362458) -- 新しいCombatタブ
+local CombatTab = Window:CreateTab("Combat", 4483362458)
 local UITab = Window:CreateTab("UI Settings", 4483362458)
 
 --------------------------------------------------
@@ -156,7 +156,7 @@ MovementTab:CreateToggle({
 })
 
 --------------------------------------------------
--- Combat機能 (ESP & Auto Assistant)
+-- Combat機能 (ESP & Auto Assistant & Fling)
 --------------------------------------------------
 
 local espEnabled = false
@@ -301,7 +301,7 @@ CombatTab:CreateToggle({
             if aimConnection then
                 aimConnection:Disconnect()
                 aimConnection = nil
-            end
+            }
             if fovCircle then
                 fovCircle:Destroy()
                 fovCircle = nil
@@ -320,6 +320,70 @@ CombatTab:CreateSlider({
         if fovCircle then
             fovCircle.Size = UDim2.new(0, fovRadius * 2, 0, fovRadius * 2)
             fovCircle.Position = UDim2.new(0.5, -fovRadius, 0.5, -fovRadius)
+        end
+    end,
+})
+
+-- Fling / Kick Player
+local selectedPlayerName = ""
+local playerNames = {}
+
+local function updatePlayerList()
+    playerNames = {}
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            table.insert(playerNames, player.Name)
+        end
+    end
+    table.sort(playerNames)
+    if #playerNames > 0 and not table.find(playerNames, selectedPlayerName) then
+        selectedPlayerName = playerNames[1]
+    elseif #playerNames == 0 then
+        selectedPlayerName = ""
+    end
+end
+
+updatePlayerList()
+Players.PlayerAdded:Connect(updatePlayerList)
+Players.PlayerRemoving:Connect(updatePlayerList)
+
+CombatTab:CreateDropdown({
+    Name = "Select Player to Fling",
+    Options = playerNames,
+    CurrentOption = selectedPlayerName,
+    Callback = function(Option)
+        selectedPlayerName = Option
+    end,
+})
+
+CombatTab:CreateButton({
+    Name = "Refresh Player List",
+    Callback = function()
+        updatePlayerList()
+        Rayfield:Notify("Player List", "Player list refreshed!", 5)
+    end,
+})
+
+CombatTab:CreateButton({
+    Name = "Fling Selected Player",
+    Callback = function()
+        if selectedPlayerName ~= "" then
+            local targetPlayer = Players:FindFirstChild(selectedPlayerName)
+            if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                local targetRoot = targetPlayer.Character.HumanoidRootPart
+                local flingForce = Vector3.new(0, 500, 0) + (RootPart.CFrame.LookVector * 200) -- 上方向と前方への力
+                
+                -- ターゲットを無重力状態にして、より遠くに飛ばす
+                targetRoot.AssemblyLinearVelocity = Vector3.new(0,0,0)
+                targetRoot.AssemblyAngularVelocity = Vector3.new(0,0,0)
+                targetRoot:ApplyImpulse(flingForce * targetRoot:GetMass() * 2) -- 質量に応じて力を調整
+
+                Rayfield:Notify("Fling", "Flinged " .. selectedPlayerName .. "!", 5)
+            else
+                Rayfield:Notify("Fling Error", "Selected player not found or character not loaded.", 5)
+            end
+        else
+            Rayfield:Notify("Fling Error", "No player selected.", 5)
         end
     end,
 })
