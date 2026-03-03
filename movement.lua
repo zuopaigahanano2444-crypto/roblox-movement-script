@@ -159,7 +159,6 @@ MovementTab:CreateToggle({
 -- テレポート機能
 --------------------------------------------------
 
--- CombatタブのselectedPlayerNameを再利用
 local selectedPlayerName = ""
 local playerNames = {}
 
@@ -461,12 +460,12 @@ CombatTab:CreateButton({
             local targetPlayer = Players:FindFirstChild(selectedPlayerName)
             if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
                 local targetRoot = targetPlayer.Character.HumanoidRootPart
-                local flingForce = Vector3.new(0, 500, 0) + (RootPart.CFrame.LookVector * 200) -- 上方向と前方への力
+                local flingForce = Vector3.new(0, 1000, 0) + (RootPart.CFrame.LookVector * 500) -- 上方向と前方への力を強化
                 
                 -- ターゲットを無重力状態にして、より遠くに飛ばす
                 targetRoot.AssemblyLinearVelocity = Vector3.new(0,0,0)
                 targetRoot.AssemblyAngularVelocity = Vector3.new(0,0,0)
-                targetRoot:ApplyImpulse(flingForce * targetRoot:GetMass() * 2) -- 質量に応じて力を調整
+                targetRoot:ApplyImpulse(flingForce * targetRoot:GetMass() * 5) -- 質量に応じて力を調整し、さらに強化
 
                 Rayfield:Notify("Fling", "Flinged " .. selectedPlayerName .. "!", 5)
             else
