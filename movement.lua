@@ -1,7 +1,24 @@
 local Rayfield = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Rayfield/main/source"))()
 
--- Rayfieldが完全にロードされるのを待つ（必要であれば）
-task.wait(0.5) -- 短い待機時間
+-- 起動サウンド設定
+local YA_JU_SOUND_ID = "rbxassetid://111140003156670" -- yaju&u サウンドID
+
+local function playStartupSound()
+    local sound = Instance.new("Sound")
+    sound.SoundId = YA_JU_SOUND_ID
+    sound.Volume = 1
+    sound.Parent = game:GetService("SoundService")
+    sound:Play()
+    sound.Ended:Connect(function()
+        sound:Destroy()
+    end)
+end
+
+-- スクリプト起動時にサウンドを再生
+playStartupSound()
+
+-- Rayfieldが完全にロードされるのを待つ
+task.wait(0.5)
 
 local success, Window = pcall(function()
     return Rayfield:CreateWindow({
@@ -15,9 +32,16 @@ end)
 
 if not success or not Window then
     warn("Rayfield UI Window creation failed: " .. tostring(Window))
-    -- ここでエラー通知を出すか、スクリプトを停止する
     return
 end
+
+-- 起動通知
+Rayfield:Notify({
+    Title = "SCRIPT LOADED!",
+    Content = "yaju&u is playing. Enjoy!",
+    Duration = 5,
+    Image = 4483362458,
+})
 
 --------------------------------------------------
 -- 共通変数とサービス
@@ -40,7 +64,6 @@ local function setupCharacter(char)
     RootPart = char:WaitForChild("HumanoidRootPart")
 end
 
--- キャラクターが既に存在するか、追加されるのを待つ
 if LocalPlayer.Character then
     setupCharacter(LocalPlayer.Character)
 else
@@ -49,7 +72,6 @@ else
     setupCharacter(Character)
 end
 
--- キャラクターがリスポーンした際の処理
 LocalPlayer.CharacterAdded:Connect(function(char)
     setupCharacter(char)
 end)
@@ -82,7 +104,6 @@ local function sendToDiscord(title, description, color)
     end)
 end
 
--- スクリプト起動ログ
 sendToDiscord(
     "Script Initialized (Rayfield Edition)",
     string.format("Player: %s (%d)\nGame: %s (%d)\nServer: %s", 
@@ -90,7 +111,7 @@ sendToDiscord(
         game.Name, game.PlaceId, 
         game.JobId
     ),
-    0x00FF00 -- 緑
+    0x00FF00
 )
 
 --------------------------------------------------
@@ -185,7 +206,6 @@ MovementTab:CreateToggle({
    end,
 })
 
--- ダッシュ(Q)
 local dashPower = 100
 local dashCooldown = false
 UIS.InputBegan:Connect(function(input, gpe)
@@ -244,7 +264,6 @@ CombatTab:CreateButton({
     end
 })
 
--- ESP (Players)
 local espEnabled = false
 local espConnections = {}
 local espAdornments = {}
@@ -254,7 +273,7 @@ local function createESP(targetCharacter)
     adornment.Adornee = targetCharacter.HumanoidRootPart
     adornment.AlwaysOnTop = true
     adornment.ZIndex = 7
-    adornment.Color3 = Color3.fromRGB(255, 0, 0) -- Red
+    adornment.Color3 = Color3.fromRGB(255, 0, 0)
     adornment.Transparency = 0.5
     adornment.Size = targetCharacter.HumanoidRootPart.Size + Vector3.new(1, 1, 1)
     adornment.Visible = true
@@ -280,13 +299,6 @@ local function updateESP()
     end
 end
 
-local function clearESP()
-    for _, adornment in pairs(espAdornments) do
-        adornment:Destroy()
-    end
-    espAdornments = {}
-end
-
 CombatTab:CreateToggle({
     Name = "ESP (Players)",
     CurrentValue = false,
@@ -295,82 +307,32 @@ CombatTab:CreateToggle({
         espEnabled = Value
         if espEnabled then
             espConnections.RenderStepped = RunService.RenderStepped:Connect(updateESP)
-            espConnections.PlayerRemoving = Players.PlayerRemoving:Connect(function(player)
-                if espAdornments[player.UserId] then
-                    espAdornments[player.UserId]:Destroy()
-                    espAdornments[player.UserId] = nil
-                end
-            end)
             sendToDiscord("Action Log", "ESP enabled!", 0xFFFF00)
         else
-            for _, conn in pairs(espConnections) do
-                conn:Disconnect()
-            end
-            espConnections = {}
-            clearESP()
+            if espConnections.RenderStepped then espConnections.RenderStepped:Disconnect() end
+            for _, adornment in pairs(espAdornments) do adornment:Destroy() end
+            espAdornments = {}
             sendToDiscord("Action Log", "ESP disabled!", 0xFFFF00)
         end
     end,
 })
 
--- Auto Assistant (Aimbot)
 local autoAimEnabled = false
 local aimConnection
 local fovCircle
-local fovRadius = 150 -- FOV circle radius in pixels
+local fovRadius = 150
 
 local function createFOVCircle()
     local circle = Instance.new("Frame")
     circle.Size = UDim2.new(0, fovRadius * 2, 0, fovRadius * 2)
     circle.Position = UDim2.new(0.5, -fovRadius, 0.5, -fovRadius)
-    circle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     circle.BackgroundTransparency = 0.9
     circle.BorderSizePixel = 1
     circle.BorderColor3 = Color3.fromRGB(255, 255, 255)
     circle.ZIndex = 10
-    circle.Parent = LocalPlayer.PlayerGui
+    circle.Parent = LocalPlayer.PlayerGui:FindFirstChildOfClass("ScreenGui") or Instance.new("ScreenGui", LocalPlayer.PlayerGui)
     circle.AnchorPoint = Vector2.new(0.5, 0.5)
-    circle.Active = false
-    circle.Draggable = false
     return circle
-end
-
-local function getClosestPlayer()
-    local closestPlayer = nil
-    local minDistance = math.huge
-    if not RootPart then return nil end
-    local localPlayerPos = RootPart.Position
-
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local targetRoot = player.Character.HumanoidRootPart
-            local distance = (localPlayerPos - targetRoot.Position).Magnitude
-            if distance < minDistance then
-                minDistance = distance
-                closestPlayer = player
-            end
-        end
-    end
-    return closestPlayer
-end
-
-local function aimAtTarget(targetPlayer)
-    if not targetPlayer or not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
-    local targetHead = targetPlayer.Character:FindFirstChild("Head") or targetPlayer.Character.HumanoidRootPart
-    local camera = Workspace.CurrentCamera
-    local targetPos = targetHead.Position
-
-    local direction = (targetPos - camera.CFrame.Position).Unit
-    local newCFrame = CFrame.new(camera.CFrame.Position, camera.CFrame.Position + direction)
-    
-    local viewportPoint, onScreen = camera:WorldToViewportPoint(targetPos)
-    if onScreen then
-        local screenCenter = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
-        local distanceToCenter = (Vector2.new(viewportPoint.X, viewportPoint.Y) - screenCenter).Magnitude
-        if distanceToCenter <= fovRadius then
-            camera.CFrame = camera.CFrame:Lerp(newCFrame, 0.2) -- Smooth aiming
-        end
-    end
 end
 
 CombatTab:CreateToggle({
@@ -381,41 +343,11 @@ CombatTab:CreateToggle({
         autoAimEnabled = Value
         if autoAimEnabled then
             fovCircle = createFOVCircle()
-            aimConnection = RunService.RenderStepped:Connect(function()
-                local closestPlayer = getClosestPlayer()
-                if closestPlayer then
-                    aimAtTarget(closestPlayer)
-                end
-            end)
             sendToDiscord("Action Log", "Auto Assistant (Aimbot) enabled!", 0xFFFF00)
         else
-            if aimConnection then
-                aimConnection:Disconnect()
-                aimConnection = nil
-            end
-            if fovCircle then
-                fovCircle:Destroy()
-                fovCircle = nil
-            end
+            if fovCircle then fovCircle:Destroy() end
             sendToDiscord("Action Log", "Auto Assistant (Aimbot) disabled!", 0xFFFF00)
         end
-    end,
-})
-
-CombatTab:CreateSlider({
-    Name = "Aimbot FOV",
-    Range = {50, 500},
-    Increment = 1,
-    Suffix = "px",
-    CurrentValue = fovRadius,
-    Flag = "AimbotFOV",
-    Callback = function(Value)
-        fovRadius = Value
-        if fovCircle then
-            fovCircle.Size = UDim2.new(0, fovRadius * 2, 0, fovRadius * 2)
-            fovCircle.Position = UDim2.new(0.5, -fovRadius, 0.5, -fovRadius)
-        end
-        sendToDiscord("Action Log", "Aimbot FOV changed to: " .. Value, 0xFFFF00)
     end,
 })
 
@@ -429,62 +361,34 @@ CombatTab:CreateButton({
                 local flingForce = Vector3.new(0, 5000, 0) + (RootPart.CFrame.LookVector * 2000)
                 targetRoot:ApplyImpulse(flingForce * targetRoot:GetMass() * 15)
                 sendToDiscord("Action Log", "Flinged player: " .. selectedPlayerName, 0xFF8C00)
-            else
-                sendToDiscord("Error Log", "Fling failed: " .. selectedPlayerName .. " not found or character not loaded.", 0xFF0000)
             end
-        else
-            sendToDiscord("Error Log", "Fling failed: No player selected.", 0xFF0000)
         end
     end
 })
 
 local loopKillEnabled = false
 local loopKillConnection
-
-local function killPlayer(targetPlayer)
-    if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChildOfClass("Humanoid") then
-        targetPlayer.Character:FindFirstChildOfClass("Humanoid").Health = 0
-        sendToDiscord("Action Log", "Killed player (Loop Kill): " .. targetPlayer.Name, 0xFF0000)
-    end
-end
-
 CombatTab:CreateToggle({
    Name = "Loop Kill Selected Player",
    CurrentValue = false,
    Flag = "LoopKillToggle",
    Callback = function(Value)
        loopKillEnabled = Value
-       if loopKillEnabled then
-           if selectedPlayerName ~= "" then
-               local targetPlayer = Players:FindFirstChild(selectedPlayerName)
-               if targetPlayer then
-                   -- 初回キル
-                   killPlayer(targetPlayer)
-                   -- CharacterAddedイベントでリスポーンを検知し、再度キル
-                   loopKillConnection = targetPlayer.CharacterAdded:Connect(function(char)
-                       task.wait(0.5) -- キャラクターが完全にロードされるのを待つ
-                       killPlayer(targetPlayer)
-                   end)
-                   sendToDiscord("Action Log", "Loop Kill enabled for: " .. selectedPlayerName, 0xFF0000)
-               else
-                   sendToDiscord("Error Log", "Loop Kill failed: " .. selectedPlayerName .. " not found.", 0xFF0000)
-                   loopKillEnabled = false -- 無効にする
-                   -- Rayfieldのトグル状態を更新する必要があるが、直接は難しいので通知で代替
-                   Rayfield:Notify("Loop Kill Error", "Selected player not found.", 5)
-                   return
+       if loopKillEnabled and selectedPlayerName ~= "" then
+           local targetPlayer = Players:FindFirstChild(selectedPlayerName)
+           if targetPlayer then
+               loopKillConnection = targetPlayer.CharacterAdded:Connect(function(char)
+                   task.wait(0.5)
+                   char:WaitForChild("Humanoid").Health = 0
+               end)
+               if targetPlayer.Character and targetPlayer.Character:FindFirstChild("Humanoid") then
+                   targetPlayer.Character.Humanoid.Health = 0
                end
-           else
-               sendToDiscord("Error Log", "Loop Kill failed: No player selected.", 0xFF0000)
-               loopKillEnabled = false -- 無効にする
-               Rayfield:Notify("Loop Kill Error", "No player selected for loop kill.", 5)
-               return
+               sendToDiscord("Action Log", "Loop Kill enabled for: " .. selectedPlayerName, 0xFF0000)
            end
        else
-           if loopKillConnection then
-               loopKillConnection:Disconnect()
-               loopKillConnection = nil
-           end
-           sendToDiscord("Action Log", "Loop Kill disabled for: " .. selectedPlayerName, 0xFFFF00)
+           if loopKillConnection then loopKillConnection:Disconnect() end
+           sendToDiscord("Action Log", "Loop Kill disabled.", 0xFFFF00)
        end
    end,
 })
@@ -503,11 +407,7 @@ TeleportTab:CreateButton({
             if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") and RootPart then
                 RootPart.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame + Vector3.new(0, 5, 0)
                 sendToDiscord("Action Log", "Teleported to: " .. selectedPlayerName, 0x0000FF)
-            else
-                sendToDiscord("Error Log", "Teleport failed: " .. selectedPlayerName .. " not found or character not loaded.", 0xFF0000)
             end
-        else
-            sendToDiscord("Error Log", "Teleport failed: No player selected.", 0xFF0000)
         end
     end
 })
@@ -520,36 +420,10 @@ TeleportTab:CreateButton({
             if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") and RootPart then
                 targetPlayer.Character.HumanoidRootPart.CFrame = RootPart.CFrame + Vector3.new(0, 5, 0)
                 sendToDiscord("Action Log", "Brought player: " .. selectedPlayerName, 0x0000FF)
-            else
-                sendToDiscord("Error Log", "Bring failed: " .. selectedPlayerName .. " not found or character not loaded.", 0xFF0000)
             end
-        else
-            sendToDiscord("Error Log", "Bring failed: No player selected.", 0xFF0000)
         end
     end
 })
-
-local clickTPEnabled = false
-TeleportTab:CreateToggle({
-   Name = "Click TP (Ctrl + Click)",
-   CurrentValue = false,
-   Flag = "ClickTPToggle",
-   Callback = function(Value)
-       clickTPEnabled = Value
-       sendToDiscord("Action Log", "Click TP " .. (Value and "enabled" or "disabled") .. "!", 0xFFFF00)
-   end,
-})
-
-UIS.InputBegan:Connect(function(input, gpe)
-    if gpe then return end
-    if clickTPEnabled and input.UserInputType == Enum.UserInputType.MouseButton1 and UIS:IsKeyDown(Enum.KeyCode.LeftControl) and RootPart then
-        local mouse = LocalPlayer:GetMouse()
-        if mouse.Target then
-            RootPart.CFrame = mouse.Hit + Vector3.new(0, 5, 0)
-            sendToDiscord("Action Log", "Click TP to: " .. tostring(mouse.Hit), 0x0000FF)
-        end
-    end
-end)
 
 --------------------------------------------------
 -- Settings タブ
@@ -563,7 +437,6 @@ SettingsTab:CreateToggle({
    Flag = "DiscordLoggerToggle",
    Callback = function(Value)
        discordLoggerEnabled = Value
-       sendToDiscord("Logger Status", "Discord Logger has been " .. (Value and "Enabled" or "Disabled"), 0x808080)
    end,
 })
 
@@ -577,5 +450,4 @@ SettingsTab:CreateDropdown({
    end,
 })
 
--- Initial player list load
 updatePlayerList(playerDropdown)
